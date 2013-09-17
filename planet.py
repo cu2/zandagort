@@ -18,3 +18,4 @@ class PlanetClassB(Planet):
     def __init__(self):
         super(PlanetClassB, self).__init__()
         self._ecosystem = ecosystem.EcosystemClassB()
+        self._economy = economy.EconomyClassB()
