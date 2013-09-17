@@ -26,7 +26,6 @@ class MyCron(object):
         self.last_check = datetime.datetime.now()
         self.checker_thread = threading.Thread(target=self.checker)
         self.checker_thread.daemon = True
-        self.checker_thread.start()
     
     def add_task(self, name, freq, task, *args, **kwargs):
         self.tasks[name] = {
@@ -40,6 +39,9 @@ class MyCron(object):
     def remove_task(self, name):
         if name in self.tasks:
             del self.tasks[name]
+    
+    def start(self):
+        self.checker_thread.start()
     
     def checker(self):
         while True:
