@@ -10,7 +10,7 @@ class Ecosystem(object):
     
     def __init__(self):
         self._species = {}
-        self._crossmatrix = {}
+        self._betamatrix = {}
     
     def __str__(self):
         outstr = ""
@@ -20,11 +20,11 @@ class Ecosystem(object):
     
     def sim(self):
         new_species = self._species.copy()
-        for species, other_species in self._crossmatrix:
+        for species, other_species in self._betamatrix:
             if other_species == Species.null:
-                new_species[species] += 1.0 * self._crossmatrix[(species, other_species)]
+                new_species[species] += 1.0 * self._betamatrix[(species, other_species)]
             else:
-                new_species[species] += 1.0 * self._crossmatrix[(species, other_species)] * self._species[other_species]
+                new_species[species] += 1.0 * self._betamatrix[(species, other_species)] * self._species[other_species]
         for species in new_species:
             if new_species[species] < 0:
                 new_species[species] = 0
@@ -37,7 +37,7 @@ class EcosystemClassB(Ecosystem):
         self._species = {Species.ebony: 1000,
                          Species.panda: 100,
                          Species.tiger: 10}
-        self._crossmatrix = {
+        self._betamatrix = {
             (Species.ebony, Species.null): 10,
             (Species.ebony, Species.ebony): -0.01,
             (Species.ebony, Species.panda): -0.1,
