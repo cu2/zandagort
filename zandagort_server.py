@@ -4,7 +4,9 @@ import threading
 import time
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
+
 import config
+from mycron import MyCron
 
 
 class ZandagortRequestHandler(BaseHTTPRequestHandler):
@@ -15,7 +17,10 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         cur_thread = threading.current_thread()
         msg = self.path
         my_queue = Queue.Queue()
-        self.server.request_queue.put((my_queue, "Check this out: " + msg))
+        self.server.request_queue.put({
+            "response_queue": my_queue,
+            "message": "Check this out: " + msg,
+        })
         response = my_queue.get()
         print "[" + cur_thread.name + "] Got this: " + response
         my_queue.task_done()
@@ -34,13 +39,10 @@ class ZandagortServer(ThreadingMixIn, HTTPServer):
         self.daemon_threads = True
 
 
-def cron(request_queue):
-    while True:
-        time.sleep(1)
-        my_queue = Queue.Queue()
-        request_queue.put((my_queue, "[CRON]"))
-        response = my_queue.get()
-        my_queue.task_done()
+def cron_fun(request_queue, cmd):
+    request_queue.put({
+        "cmd": cmd
+    })
 
 
 def main():
@@ -52,22 +54,29 @@ def main():
     server_thread.daemon = True
     server_thread.start()
     print "[Main Thread] Server Thread listening."
-    cron_thread = threading.Thread(target=cron, name="Cron Thread", args=(request_queue,))
-    cron_thread.daemon = True
-    cron_thread.start()
+    cron = MyCron(1)
+    cron.add_task("sim", 2, cron_fun, request_queue, "[SIM]")
+    cron.add_task("dump", 5, cron_fun, request_queue, "[DUMP]")
+    cron.start()
     try:
         while True:
             try:
-                response_queue, msg = request_queue.get(True, 4)
+                request = request_queue.get(True, 4)
             except Queue.Empty:
                 continue
-            print "[Main Thread] Got msg: " + msg
-            if msg == "[CRON]":
-                world_state += 1
+            if "cmd" in request:
+                if request["cmd"] == "[SIM]":
+                    world_state += 1
+                elif request["cmd"] == "[DUMP]":
+                    print "[Main Thread] Dump!!!"
+                else:
+                    print "[Main Thread] Unknown command: ", request["cmd"]
+            else:
+                print "[Main Thread] From client: " + request["message"]
+                request["response_queue"].put("world_state = " + str(world_state))
+                del request["response_queue"]  # might be unnecessary
+                request_queue.task_done()
             print "[Main Thread] world_state =", world_state
-            response_queue.put("world_state = " + str(world_state))
-            del response_queue  # might be unnecessary
-            request_queue.task_done()
     except KeyboardInterrupt, SystemExit:
         print "[Main Thread] Shutting down Zandagort Server..."
     finally:
