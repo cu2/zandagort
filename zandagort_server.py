@@ -34,6 +34,15 @@ class ZandagortServer(ThreadingMixIn, HTTPServer):
         self.daemon_threads = True
 
 
+def cron(request_queue):
+    while True:
+        time.sleep(1)
+        my_queue = Queue.Queue()
+        request_queue.put((my_queue, "[CRON]"))
+        response = my_queue.get()
+        my_queue.task_done()
+
+
 def main():
     world_state = 0
     request_queue = Queue.Queue()
@@ -43,6 +52,9 @@ def main():
     server_thread.daemon = True
     server_thread.start()
     print "[Main Thread] Server Thread listening."
+    cron_thread = threading.Thread(target=cron, name="Cron Thread", args=(request_queue,))
+    cron_thread.daemon = True
+    cron_thread.start()
     try:
         while True:
             try:
@@ -50,7 +62,8 @@ def main():
             except Queue.Empty:
                 continue
             print "[Main Thread] Got msg: " + msg
-            world_state += 1
+            if msg == "[CRON]":
+                world_state += 1
             print "[Main Thread] world_state =", world_state
             response_queue.put("world_state = " + str(world_state))
             del response_queue  # might be unnecessary
