@@ -1,2 +1,18 @@
+"""
+General config file
+"""
+
+# Server
 ZANDAGORT_SERVER_HOST = "localhost"
 ZANDAGORT_SERVER_PORT = 3492
+ZANDAGORT_SERVER_VERSION = "Zandagort/2.0"
+
+# Game
+ADMIN_USER_NAME = "admin"
+ADMIN_USER_EMAIL = "admin@admin"
+ADMIN_USER_PASSWORD = "admin"
+
+# World
+CRON_BASE_DELAY = 1
+CRON_SIM_INTERVAL = 2
+CRON_DUMP_INTERVAL = 5

@@ -9,3 +9,6 @@ This is a simplified version of the original game with the following advantages:
 - can be played as single player, multiplayer, massively multiplayer
 - easy to reconfigure (change ship parameters, add new resources, etc.)
 - readable code, so even new features are not hard to add
+
+Dependencies:
+- Python 2
