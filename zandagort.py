@@ -34,7 +34,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         url = urlparse(self.path)
-        command = url.path
+        command = url.path.lstrip("/")
         try:
             argument = json.dumps(self._parse_qs_flat(url.query))
         except Exception:
@@ -43,7 +43,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         self._send_response(response)
     
     def do_POST(self):
-        command = self.path
+        command = self.path.lstrip("/")
         try:
             request_body_length = int(self.headers.getheader("content-length"))
         except TypeError:
