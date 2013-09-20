@@ -17,6 +17,12 @@ from SocketServer import ThreadingMixIn
 import config
 from game import Game
 from mycron import MyCron
+from myenum import MyEnum
+
+
+class InnerCommands(MyEnum):
+
+    values = ["Sim", "Dump"]
 
 
 class ZandagortRequestHandler(BaseHTTPRequestHandler):
@@ -77,60 +83,80 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
 
 class ZandagortHTTPServer(ThreadingMixIn, HTTPServer):
     
-    def __init__(self, server_address, RequestHandlerClass, request_queue):
-        HTTPServer.__init__(self, server_address, RequestHandlerClass)  # can't use standard super() because HTTPServer is old-style class
+    def __init__(self, server_address, request_queue):
+        HTTPServer.__init__(self, server_address, ZandagortRequestHandler)  # can't use standard super() because HTTPServer is old-style class
         self.request_queue = request_queue
         self.daemon_threads = True
 
 
-def cron_fun(request_queue, cmd):
-    request_queue.put({
-        "cmd": cmd
-    })
+class ZandagortServer(object):
+    
+    def __init__(self, host, port):
+        self._host = host
+        self._port = port
+        self._request_queue = Queue.Queue()
+        self._server = ZandagortHTTPServer((self._host, self._port), self._request_queue)
+        self._server_thread = threading.Thread(target=self._server.serve_forever, name="Server Thread")
+        self._server_thread.daemon = True
+        self._cron = MyCron(config.CRON_BASE_DELAY)
+        self._cron.add_task("sim", config.CRON_SIM_INTERVAL, self._cron_fun, InnerCommands.Sim)
+        self._cron.add_task("dump", config.CRON_DUMP_INTERVAL, self._cron_fun, InnerCommands.Dump)
+        self._game = Game(10000)
+    
+    def start(self):
+        self._server_thread.start()
+        self._cron.start()
+        print "Listening at " + self._host + ":" + str(self._port) + "..."
+    
+    def serve_forever(self):
+        try:
+            while True:
+                try:
+                    request = self._request_queue.get(True, 4)
+                except Queue.Empty:
+                    continue
+                if "inner_command" in request:
+                    self._execute_inner_command(request["inner_command"])
+                else:
+                    response = self._execute_client_request(request["method"], request["command"], request["argument"])
+                    request["response_queue"].put(response)
+                    del request["response_queue"]  # might be unnecessary
+                self._request_queue.task_done()
+        except KeyboardInterrupt, SystemExit:
+            print ""
+            print "Shutting down..."
+        finally:
+            self._server.shutdown()
+    
+    def _execute_inner_command(self, command):
+        if command == InnerCommands.Sim:
+            self._game.sim()
+            print "[" + str(command) + "] game time =", self._game.get_time()
+        elif command == InnerCommands.Dump:
+            # TODO: add dump feature
+            print "[" + str(command) +  "] Dump!!!"
+        else:
+            print "[" + str(command) + "] Unknown command"
+    
+    def _execute_client_request(self, method, command, argument):
+        print "[" + method + "]", command
+        print "<argument>"
+        print argument
+        print "</argument>"
+        response = "world_state = " + str(self._game.get_time())
+        return response
+    
+    def _cron_fun(self, command):
+        self._request_queue.put({
+            "inner_command": command
+        })
 
 
 def main():
     print "Launching Zandagort Server..."
-    game = Game(10000)
-    world_state = 0
-    request_queue = Queue.Queue()
-    server = ZandagortHTTPServer((config.ZANDAGORT_SERVER_HOST, config.ZANDAGORT_SERVER_PORT), ZandagortRequestHandler, request_queue)
-    server_thread = threading.Thread(target=server.serve_forever, name="Server Thread")
-    server_thread.daemon = True
-    server_thread.start()
-    print "Listening at " + config.ZANDAGORT_SERVER_HOST + ":" + str(config.ZANDAGORT_SERVER_PORT) + "..."
-    cron = MyCron(config.CRON_BASE_DELAY)
-    cron.add_task("sim", config.CRON_SIM_INTERVAL, cron_fun, request_queue, "[SIM]")
-    cron.add_task("dump", config.CRON_DUMP_INTERVAL, cron_fun, request_queue, "[DUMP]")
-    cron.start()
-    try:
-        while True:
-            try:
-                request = request_queue.get(True, 4)
-            except Queue.Empty:
-                continue
-            if "cmd" in request:
-                if request["cmd"] == "[SIM]":
-                    world_state += 1
-                    game.sim()
-                    print "[SIM] world_state =", world_state
-                elif request["cmd"] == "[DUMP]":
-                    print "[DUMP] Dump!!!"
-                else:
-                    print "[???] Unknown command: ", request["cmd"]
-            else:
-                print "[" + request["method"] + "]", request["command"]
-                print "<argument>"
-                print request["argument"]
-                print "</argument>"
-                request["response_queue"].put("world_state = " + str(world_state))
-                del request["response_queue"]  # might be unnecessary
-                request_queue.task_done()
-    except KeyboardInterrupt, SystemExit:
-        print ""
-        print "Shutting down..."
-    finally:
-        server.shutdown()
+    server = ZandagortServer(config.ZANDAGORT_SERVER_HOST, config.ZANDAGORT_SERVER_PORT)
+    server.start()
+    server.serve_forever()
     print "Zandagort Server shut down."
 
 

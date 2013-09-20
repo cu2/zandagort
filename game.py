@@ -17,3 +17,6 @@ class Game(object):
     
     def sim(self):
         self._world.sim()
+    
+    def get_time(self):
+        return self._world.get_time()
