@@ -21,14 +21,14 @@ import threading
 class MyCron(object):
     
     def __init__(self, base_delay=60.0):
-        self.base_delay = base_delay
-        self.tasks = {}
-        self.last_check = datetime.datetime.now()
-        self.checker_thread = threading.Thread(target=self.checker)
-        self.checker_thread.daemon = True
+        self._base_delay = base_delay
+        self._tasks = {}
+        self._last_check = datetime.datetime.now()
+        self._checker_thread = threading.Thread(target=self._checker)
+        self._checker_thread.daemon = True
     
     def add_task(self, name, freq, task, *args, **kwargs):
-        self.tasks[name] = {
+        self._tasks[name] = {
             "freq": freq,
             "counter": 0,
             "task": task,
@@ -37,22 +37,22 @@ class MyCron(object):
         }
     
     def remove_task(self, name):
-        if name in self.tasks:
-            del self.tasks[name]
+        if name in self._tasks:
+            del self._tasks[name]
     
     def start(self):
-        self.checker_thread.start()
+        self._checker_thread.start()
     
-    def checker(self):
+    def _checker(self):
         while True:
-            self.last_check = datetime.datetime.now()
-            for name in self.tasks:
-                self.tasks[name]["counter"] += 1
-                if self.tasks[name]["counter"] >= self.tasks[name]["freq"]:
-                    self.tasks[name]["counter"] = 0
-                    self.tasks[name]["task"](*self.tasks[name]["args"], **self.tasks[name]["kwargs"])
+            self._last_check = datetime.datetime.now()
+            for name in self._tasks:
+                self._tasks[name]["counter"] += 1
+                if self._tasks[name]["counter"] >= self._tasks[name]["freq"]:
+                    self._tasks[name]["counter"] = 0
+                    self._tasks[name]["task"](*self._tasks[name]["args"], **self._tasks[name]["kwargs"])
             now = datetime.datetime.now()
-            if now >= self.last_check:
-                seconds_since_last_check = 1.0 * (now - self.last_check).microseconds / 1000000
-                if seconds_since_last_check < self.base_delay:
-                    time.sleep(self.base_delay - seconds_since_last_check)
+            if now >= self._last_check:
+                seconds_since_last_check = 1.0 * (now - self._last_check).microseconds / 1000000
+                if seconds_since_last_check < self._base_delay:
+                    time.sleep(self._base_delay - seconds_since_last_check)
