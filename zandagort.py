@@ -5,6 +5,7 @@ Usage:
 python server.py
 """
 
+import errno
 import json
 import sys
 import time
@@ -13,6 +14,7 @@ import Queue
 import threading
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
+from socket import error as socket_error
 
 import config
 from game import Game
@@ -155,7 +157,15 @@ class ZandagortServer(object):
 
 def main():
     print "Launching Zandagort Server..."
-    server = ZandagortServer(config.ZANDAGORT_SERVER_HOST, config.ZANDAGORT_SERVER_PORT)
+    try:
+        server = ZandagortServer(config.ZANDAGORT_SERVER_HOST, config.ZANDAGORT_SERVER_PORT)
+    except socket_error as serr:
+        if serr.errno == errno.EACCES:
+            print "[ERROR] port " + str(config.ZANDAGORT_SERVER_PORT) + " already used by some other service."
+            print "Change it in config.py"
+            return
+        else:
+            raise
     server.start()
     server.serve_forever()
     print "Zandagort Server shut down."
