@@ -33,8 +33,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         command = url.path
         try:
-            deep_query_dict = parse_qs(url.query, False, True)
-            argument = json.dumps(self._flatten_query_dict(deep_query_dict))
+            argument = json.dumps(self._parse_qs_flat(url.query))
         except Exception:
             argument = '{"error": "syntax_error"}'
         response = self._get_response("GET", command, argument)
@@ -74,7 +73,8 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-length", str(response_length))
         self.wfile.write("\n" + response)
     
-    def _flatten_query_dict(self, deep_query_dict):
+    def _parse_qs_flat(self, query):
+        deep_query_dict = parse_qs(query)
         flat_query_dict = {}
         for key in deep_query_dict:
             flat_query_dict[key] = deep_query_dict[key][0]
