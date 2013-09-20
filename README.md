@@ -10,5 +10,22 @@ This is a simplified version of the original game with the following advantages:
 - easy to reconfigure (change ship parameters, add new resources, etc.)
 - readable code, so even new features are not hard to add
 
-Dependencies:
+# Dependencies
+
 - Python 2
+
+# Usage
+
+All config is available in `config.py`.
+
+Launch server:
+
+`python server.py`
+
+You can access it via command line client:
+
+`python client.py <HOST> <PORT>` (default: `python client.py localhost 3492`)
+
+Or any web browser on this url:
+
+`<HOST>:<PORT>` (default: `http://localhost:3492/`)
