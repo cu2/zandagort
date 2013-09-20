@@ -7,6 +7,10 @@ ZANDAGORT_SERVER_HOST = "localhost"
 ZANDAGORT_SERVER_PORT = 3492
 ZANDAGORT_SERVER_VERSION = "Zandagort/2.0"
 
+# Cookie
+AUTH_COOKIE_NAME = "zuid"
+AUTH_COOKIE_EXPIRY = 7 * 24 * 60 * 60
+
 # Game
 ADMIN_USER_NAME = "admin"
 ADMIN_USER_EMAIL = "admin@admin"

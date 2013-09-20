@@ -8,7 +8,8 @@ python server.py
 import errno
 import json
 import sys
-import time
+import datetime
+import Cookie
 from urlparse import urlparse, parse_qs
 import Queue
 import threading
@@ -69,11 +70,37 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         my_queue.task_done()
         return response
     
-    def _send_response(self, response):
-        response_length = len(response)
+    def _send_response(self, response, content_type="application/json"):
         self.send_response(200)
-        self.send_header("Content-length", str(response_length))
-        self.wfile.write("\n" + response)
+        self.send_header("Content-type", content_type + "; charset=utf-8")
+        self.send_header("Content-length", str(len(response)))
+        auth_cookie_value = ""
+        if "Cookie" in self.headers:
+            cookies = Cookie.SimpleCookie(self.headers["Cookie"])
+            for key in cookies:
+                if key != config.AUTH_COOKIE_NAME:
+                    self.send_header("Set-Cookie", cookies[key].output(header=""))
+                else:
+                    auth_cookie_value = cookies[key].value
+        if auth_cookie_value.startswith("stuff"):  # TODO: replace test code with real
+            try:
+                x = int(auth_cookie_value[5:])
+            except ValueError:
+                x = 0
+            auth_cookie_value = "stuff" + str(x+1)
+        else:
+            auth_cookie_value = "stuff"
+        self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, config.AUTH_COOKIE_EXPIRY, "/")
+        self.end_headers()
+        self.wfile.write(response)
+    
+    def _send_cookie(self, cookie_key, cookie_value, expires_from_now, path):
+        C = Cookie.SimpleCookie()
+        C[cookie_key] = cookie_value
+        expires = datetime.datetime.now() + datetime.timedelta(seconds=expires_from_now)
+        C[cookie_key]["expires"] = expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT")
+        C[cookie_key]["path"] = path
+        self.send_header("Set-Cookie", C.output(header=""))
     
     def _parse_qs_flat(self, query):
         deep_query_dict = parse_qs(query)
@@ -146,7 +173,9 @@ class ZandagortServer(object):
         print "<argument>"
         print argument
         print "</argument>"
-        response = "world_state = " + str(self._game.get_time())
+        response = json.dumps({
+            "world_state": str(self._game.get_time())
+        })
         return response
     
     def _cron_fun(self, command):
