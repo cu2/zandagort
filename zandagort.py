@@ -151,7 +151,7 @@ class ZandagortServer(object):
                     request["response_queue"].put(response)
                     del request["response_queue"]  # might be unnecessary
                 self._request_queue.task_done()
-        except KeyboardInterrupt, SystemExit:
+        except (KeyboardInterrupt, SystemExit):
             print ""
             print "Shutting down..."
         finally:

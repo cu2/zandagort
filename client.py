@@ -90,7 +90,7 @@ def main(args):
             if not success:
                 if not client.reset():
                     return
-    except KeyboardInterrupt, SystemExit:
+    except (KeyboardInterrupt, SystemExit, EOFError):
         client.shutdown()
         print ""
         print "Client shut down."
