@@ -35,6 +35,15 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
         command = url.path.lstrip("/")
+        if command == "test" or command == "test/":
+            self._send_static_file("html/test.html")
+            return
+        if command.startswith("static/"):
+            self._send_static_file(command[7:])
+            return
+        if command == "favicon.ico":
+            self._send_static_file("img/favicon.ico", "image/x-icon")
+            return
         try:
             argument = json.dumps(self._parse_qs_flat(url.query))
         except Exception:
@@ -108,6 +117,23 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         for key in deep_query_dict:
             flat_query_dict[key] = deep_query_dict[key][0]
         return flat_query_dict
+    
+    def _send_static_file(self, filename, content_type=None):
+        content = ""
+        if content_type is None:
+            try:
+                type = filename[:filename.index("/")]
+            except ValueError:
+                type = "?"
+            if type == "js":
+                content_type = "text/javascript"
+            elif type == "css":
+                content_type = "text/css"
+            else:
+                content_type = "text/html"
+        with open("static/" + filename, "r") as infile:
+            content = infile.read()
+        self._send_response(content, content_type)
 
 
 class ZandagortHTTPServer(ThreadingMixIn, HTTPServer):
@@ -173,6 +199,7 @@ class ZandagortServer(object):
         print "<argument>"
         print argument
         print "</argument>"
+        # TODO: implement Zandagort commands
         response = json.dumps({
             "world_state": str(self._game.get_time())
         })

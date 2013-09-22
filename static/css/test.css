@@ -1,0 +1,10 @@
+#command {
+    width: 200px;
+}
+#argument {
+    width: 500px;
+    height: 100px;
+}
+footer {
+    text-align: right;
+}
