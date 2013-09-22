@@ -56,6 +56,10 @@ class MyEnumMetaclass(type):
         if not isinstance(value, MyEnumValue):
             return False
         return value[0] == mcs.__name__
+    
+    def get_all_values(mcs):
+        """Return list of all values"""
+        return [getattr(mcs, value) for value in mcs.values]
 
 
 class MyEnum(object):
