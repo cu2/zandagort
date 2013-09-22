@@ -86,11 +86,8 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         auth_cookie_value = ""
         if "Cookie" in self.headers:
             cookies = Cookie.SimpleCookie(self.headers["Cookie"])
-            for key in cookies:
-                if key != config.AUTH_COOKIE_NAME:
-                    self.send_header("Set-Cookie", cookies[key].output(header=""))
-                else:
-                    auth_cookie_value = cookies[key].value
+            if config.AUTH_COOKIE_NAME in cookies:
+                auth_cookie_value = cookies[config.AUTH_COOKIE_NAME].value
         if auth_cookie_value.startswith("stuff"):  # TODO: replace test code with real
             try:
                 x = int(auth_cookie_value[5:])
