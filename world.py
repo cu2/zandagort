@@ -3,9 +3,9 @@ from galaxy import Galaxy
 
 class World(object):
     
-    def __init__(self, number_of_planets=0):
+    def __init__(self):
         self._players = []
-        self._galaxy = Galaxy(number_of_planets)
+        self._galaxy = Galaxy()
         self._time = 0
     
     def sim(self):

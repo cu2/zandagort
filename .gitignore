@@ -2,6 +2,7 @@
 _stuff/
 test_*.py
 logs/*.log
+dumps/*.pickle
 
 ### Template from https://github.com/github/gitignore/blob/master/Python.gitignore
 *.py[cod]

@@ -53,7 +53,9 @@ CRON_SIM_INTERVAL = 2
 CRON_DUMP_INTERVAL = 5
 
 
-# Planets
+# Galaxy
+NUMBER_OF_PLANETS = 10000
+
 class PlanetClasses(MyEnum):
     values = ["A", "B", "C", "D", "E"]
 

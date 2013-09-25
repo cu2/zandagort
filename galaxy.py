@@ -4,9 +4,10 @@ import planet
 
 class Galaxy(object):
     
-    def __init__(self, number_of_planets=0):
+    def __init__(self):
         self._planets = []
-        for _ in range(number_of_planets):
+        # TODO: implement galaxy generation
+        for _ in range(config.NUMBER_OF_PLANETS):
             self._planets.append(planet.Planet(config.PlanetClasses.B))
     
     def sim(self):

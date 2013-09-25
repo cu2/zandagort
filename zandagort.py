@@ -178,10 +178,10 @@ class ZandagortServer(object):
         self._cron = MyCron(config.CRON_BASE_DELAY)
         self._cron.add_task("sim", config.CRON_SIM_INTERVAL, self._cron_fun, InnerCommands.Sim)
         self._cron.add_task("dump", config.CRON_DUMP_INTERVAL, self._cron_fun, InnerCommands.Dump)
-        self._game = Game(10000)
+        self._game = Game()
         self._controllers = {
-            "GET": GetController(self._game._world),
-            "POST": PostController(self._game._world),
+            "GET": GetController(self._game),
+            "POST": PostController(self._game),
         }
         self._logfiles = {}
         for key in config.SERVER_LOG_FILES:
@@ -298,6 +298,7 @@ def main():
         else:
             raise
     server.start()
+    print "Zandagort Server launched."
     server.serve_forever()  # blocking call
     print "Zandagort Server shut down."
 
