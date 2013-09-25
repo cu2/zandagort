@@ -24,7 +24,7 @@ SERVER_HOST = "localhost"
 SERVER_PORT = 3492
 SERVER_VERSION = "Zandagort/2.0"
 
-SERVER_LOG_DIR = "logs"  # not trailing slash
+SERVER_LOG_DIR = "logs"  # no trailing slash
 SERVER_LOG_FILES = {
     "access": "access.log",
     "error": "error.log",
