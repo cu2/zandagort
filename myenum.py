@@ -43,16 +43,16 @@ class MyEnumValue(tuple):
 
 
 class MyEnumMetaclass(type):
-    """MyEnum and its subclasses are never instanced, so all stuff is defined as a metaclass."""
+    """MyEnum and its subclasses are never instanced, so all stuff is defined as a metaclass"""
     
     def __getattr__(mcs, name):
-        """Return MyEnumValue."""
+        """Return MyEnumValue"""
         if name not in mcs.values:
             raise ValueError(name + " is not " + mcs.__name__)
         return MyEnumValue((mcs.__name__, mcs.values.index(name), name))
     
     def contains(mcs, value):
-        """Check if value is MyEnumValue and comes from this subclass of MyEnum."""
+        """Check if value is MyEnumValue and comes from this subclass of MyEnum"""
         if not isinstance(value, MyEnumValue):
             return False
         return value[0] == mcs.__name__
@@ -62,7 +62,7 @@ class MyEnumMetaclass(type):
         return [getattr(mcs, value) for value in mcs.values]
 
 
-class MyEnum(object):
-    """Custom enum base class."""
+class MyEnum(object):  # pylint: disable-msg=R0903
+    """Custom enum base class"""
     
     __metaclass__ = MyEnumMetaclass

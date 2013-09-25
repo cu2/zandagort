@@ -36,7 +36,7 @@ from getcontroller import GetController
 from postcontroller import PostController
 
 
-class InnerCommands(MyEnum):
+class InnerCommands(MyEnum):  # pylint: disable-msg=R0903
     """Inner commands for ZandagortServer"""
 
     values = ["Sim", "Dump"]

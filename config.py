@@ -14,6 +14,7 @@ change <key> and/or <value>, add key-value pairs, delete them
 - overrides: <something> *= 2  # i.e. <something> = <something> * 2
 change it as you like, just don't create syntax error
 """
+# pylint: disable-all
 
 from myenum import MyEnum
 from utils import multi_config

@@ -19,6 +19,7 @@ import threading
 
 
 class MyCron(object):
+    """Custom cron class that contains checker thread and tasks"""
     
     def __init__(self, base_delay=60.0):
         self._base_delay = base_delay
@@ -28,6 +29,7 @@ class MyCron(object):
         self._checker_thread.daemon = True
     
     def add_task(self, name, freq, task, *args, **kwargs):
+        """Add task to tasklist"""
         self._tasks[name] = {
             "freq": freq,
             "counter": 0,
@@ -37,13 +39,16 @@ class MyCron(object):
         }
     
     def remove_task(self, name):
+        """Remove task from tasklist by name"""
         if name in self._tasks:
             del self._tasks[name]
     
     def start(self):
+        """Start checker thread"""
         self._checker_thread.start()
     
     def _checker(self):
+        """Main loop of checker thread"""
         while True:
             self._last_check = datetime.datetime.now()
             for name in self._tasks:
