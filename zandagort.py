@@ -3,6 +3,18 @@ Zandagort server
 
 Usage:
 python server.py
+
+GET command:
+<command>?<arguments>
+<arguments>= <key>=<value>[&<key>=<value>]*
+
+POST command:
+<command> in header, <arguments> in body
+<arguments>= JSON
+
+Response:
+JSON
+
 """
 
 import errno
@@ -20,6 +32,8 @@ import config
 from game import Game
 from mycron import MyCron
 from myenum import MyEnum
+from getcontroller import GetController
+from postcontroller import PostController
 
 
 class InnerCommands(MyEnum):
@@ -56,11 +70,11 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
             self._send_static_file("img/favicon.ico", "image/x-icon")
             return
         try:
-            argument = json.dumps(_parse_qs_flat(url.query))
+            arguments = _parse_qs_flat(url.query)
         except Exception:
-            argument = '{"error": "syntax_error"}'
-        response = self._get_response("GET", command, argument)
-        self._send_response(response)
+            arguments = {"error": "Syntax error"}
+        response = self._get_response("GET", command, arguments)
+        self._send_response(json.dumps(response))
     
     def do_POST(self):
         """Handle POST requests"""
@@ -70,24 +84,24 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         except TypeError:
             request_body_length = 0
         try:
-            argument = json.dumps(json.loads(self.rfile.read(request_body_length)))
+            arguments = json.loads(self.rfile.read(request_body_length))
         except Exception:
-            argument = '{"error": "syntax_error"}'
-        response = self._get_response("POST", command, argument)
-        self._send_response(response)
+            arguments = {"error": "Syntax error"}
+        response = self._get_response("POST", command, arguments)
+        self._send_response(json.dumps(response))
     
     def log_message(self, format_, *args):
         """Overwrite (disable) default logging"""
         pass
     
-    def _get_response(self, method, command, argument):
+    def _get_response(self, method, command, arguments):
         """Get response from core Zandagort Server"""
         my_queue = Queue.Queue()
         self.server.request_queue.put({
             "response_queue": my_queue,
             "method": method,
             "command": command,
-            "argument": argument,
+            "arguments": arguments,
         })
         response = my_queue.get()
         my_queue.task_done()
@@ -166,6 +180,8 @@ class ZandagortServer(object):
         self._cron.add_task("sim", config.CRON_SIM_INTERVAL, self._cron_fun, InnerCommands.Sim)
         self._cron.add_task("dump", config.CRON_DUMP_INTERVAL, self._cron_fun, InnerCommands.Dump)
         self._game = Game(10000)
+        self._getcontroller = GetController(self._game._world)
+        self._postcontroller = PostController(self._game._world)
     
     def start(self):
         """Start server and cron threads"""
@@ -184,7 +200,7 @@ class ZandagortServer(object):
                 if "inner_command" in request:
                     self._execute_inner_command(request["inner_command"])
                 else:
-                    response = self._execute_client_request(request["method"], request["command"], request["argument"])
+                    response = self._execute_client_request(request["method"], request["command"], request["arguments"])
                     request["response_queue"].put(response)
                     del request["response_queue"]  # might be unnecessary
                 self._request_queue.task_done()
@@ -206,16 +222,28 @@ class ZandagortServer(object):
         else:
             print "[" + str(command) + "] Unknown command"
     
-    def _execute_client_request(self, method, command, argument):
+    def _execute_client_request(self, method, command, arguments):
         """Execute commands sent by clients"""
         print "[" + method + "]", command
         print "<argument>"
-        print argument
+        print json.dumps(arguments)
         print "</argument>"
-        # TODO: implement Zandagort commands
-        response = json.dumps({
-            "world_state": str(self._game.get_time())
-        })
+        if method not in ["GET", "POST"]:
+            print "[ERROR] Unknown method"
+            return {"error": "Unknown method"}
+        try:
+            if method == "GET":
+                controller_function = getattr(self._getcontroller, command)
+            else:
+                controller_function = getattr(self._postcontroller, command)
+        except AttributeError:
+            print "[ERROR] Unknown command"
+            return {"error": "Unknown command"}
+        try:
+            response = controller_function(**arguments)
+        except Exception:
+            print "[ERROR] Argument error"
+            return {"error": "Argument error"}
         return response
     
     def _cron_fun(self, command):

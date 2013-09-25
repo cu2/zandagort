@@ -14,3 +14,7 @@ class World(object):
     
     def get_time(self):
         return self._time
+    
+    def set_time(self, time_):
+        self._time = time_
+        return self._time
