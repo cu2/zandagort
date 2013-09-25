@@ -15,9 +15,21 @@ POST command:
 Response:
 JSON
 
+Architecture:
+client (browser or command line)
+|http|
+zanda server:
+- request threads: get input from client, queue to main thread, send back response to client
+- server thread: create request threads
+|Queue|
+- main thread: read/write data (Game) through controllers
+|Queue|
+- cron thread: initiate internal commands like sim() and dump()
 """
 
 import errno
+import sys
+import traceback
 import json
 import datetime
 import Cookie
@@ -73,8 +85,9 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
             arguments = _parse_qs_flat(url.query)
         except Exception:
             arguments = {"error": "Syntax error"}
-        response = self._get_response("GET", command, arguments)
-        self._send_response(json.dumps(response))
+        auth_cookie_value = self._get_auth_cookie_value()
+        response = self._get_response("GET", command, arguments, auth_cookie_value)
+        self._send_response(response)
     
     def do_POST(self):
         """Handle POST requests"""
@@ -87,14 +100,24 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
             arguments = json.loads(self.rfile.read(request_body_length))
         except Exception:
             arguments = {"error": "Syntax error"}
-        response = self._get_response("POST", command, arguments)
-        self._send_response(json.dumps(response))
+        auth_cookie_value = self._get_auth_cookie_value()
+        response = self._get_response("POST", command, arguments, auth_cookie_value)
+        self._send_response(response)
     
     def log_message(self, format_, *args):
         """Overwrite (disable) default logging"""
         pass
     
-    def _get_response(self, method, command, arguments):
+    def _get_auth_cookie_value(self):
+        """Get auth cookie value from HTTP headers"""
+        auth_cookie_value = ""
+        if "Cookie" in self.headers:
+            cookies = Cookie.SimpleCookie(self.headers["Cookie"])
+            if config.AUTH_COOKIE_NAME in cookies:
+                auth_cookie_value = cookies[config.AUTH_COOKIE_NAME].value
+        return auth_cookie_value
+    
+    def _get_response(self, method, command, arguments, auth_cookie_value):
         """Get response from core Zandagort Server"""
         my_queue = Queue.Queue()
         self.server.request_queue.put({
@@ -102,32 +125,35 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
             "method": method,
             "command": command,
             "arguments": arguments,
+            "auth_cookie_value": auth_cookie_value,
         })
         response = my_queue.get()
         my_queue.task_done()
         return response
     
-    def _send_response(self, response, content_type="application/json"):
+    def _send_response(self, response, content_type="application/json", raw=False):
         """Send response to client"""
+        auth_cookie_value = None
+        if raw:
+            response_text = response
+        else:
+            try:
+                if "auth_cookie_value" in response:
+                    auth_cookie_value = response["auth_cookie_value"]
+                    del response["auth_cookie_value"]
+            except TypeError:
+                pass
+            response_text = json.dumps(response)
         self.send_response(200)
         self.send_header("Content-type", content_type + "; charset=utf-8")
-        self.send_header("Content-length", str(len(response)))
-        auth_cookie_value = ""
-        if "Cookie" in self.headers:
-            cookies = Cookie.SimpleCookie(self.headers["Cookie"])
-            if config.AUTH_COOKIE_NAME in cookies:
-                auth_cookie_value = cookies[config.AUTH_COOKIE_NAME].value
-        if auth_cookie_value.startswith("stuff"):  # TODO: replace test code with real
-            try:
-                counter = int(auth_cookie_value[5:])
-            except ValueError:
-                counter = 0
-            auth_cookie_value = "stuff" + str(counter+1)
-        else:
-            auth_cookie_value = "stuff"
-        self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, config.AUTH_COOKIE_EXPIRY, "/")
+        self.send_header("Content-length", str(len(response_text)))
+        if auth_cookie_value is not None:
+            if auth_cookie_value == "":
+                self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, -3600, "/")
+            else:
+                self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, config.AUTH_COOKIE_EXPIRY, "/")
         self.end_headers()
-        self.wfile.write(response)
+        self.wfile.write(response_text)
     
     def _send_cookie(self, cookie_key, cookie_value, expires_from_now, path):
         """Send cookie with key, value, expiry and path"""
@@ -154,7 +180,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
                 content_type = "text/html"
         with open("static/" + filename, "r") as infile:
             content = infile.read()
-        self._send_response(content, content_type)
+        self._send_response(content, content_type, True)
 
 
 class ZandagortHTTPServer(ThreadingMixIn, HTTPServer):
@@ -204,7 +230,10 @@ class ZandagortServer(object):
                 if "inner_command" in request:
                     self._execute_inner_command(request["inner_command"])
                 else:
-                    response = self._execute_client_request(request["method"], request["command"], request["arguments"])
+                    response = self._execute_client_request(request["method"],
+                                                            request["command"],
+                                                            request["arguments"],
+                                                            request["auth_cookie_value"])
                     request["response_queue"].put(response)
                     del request["response_queue"]  # might be unnecessary
                 self._request_queue.task_done()
@@ -231,14 +260,14 @@ class ZandagortServer(object):
         else:
             self._log_sys("[" + str(command) + "] Unknown command")
     
-    def _execute_client_request(self, method, command, arguments):
+    def _execute_client_request(self, method, command, arguments, auth_cookie_value):
         """Execute commands sent by clients"""
         if method == "GET":
             try:
                 query_string = "&".join([key+"="+arguments[key] for key in arguments])
             except Exception:
                 query_string = "[ERROR]"
-            request_string = "[" + method + "] " + command + "?" + query_string
+            request_string = "[" + method + "] " + command + ("?" + query_string if query_string != "" else "")
         else:
             request_string = "[" + method + "] " + command
         if method not in ["GET", "POST"]:
@@ -249,11 +278,17 @@ class ZandagortServer(object):
         except AttributeError:
             self._log_error(request_string + " ! Unknown command")
             return {"error": "Unknown command"}
+        arguments_with_auth = {"auth_cookie_value": auth_cookie_value}
+        arguments_with_auth.update(arguments)
         try:
-            response = controller_function(**arguments)
+            response = controller_function(**arguments_with_auth)
         except Exception:
-            self._log_error(request_string + " ! Argument error")
-            return {"error": "Argument error"}
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self._log_error(request_string + " ! " + str(exc_type.__name__) + ": " + str(exc_value))
+            trace_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            for trace_line in trace_lines:
+                self._log_error("    " + trace_line.rstrip(), raw=True)
+            return {"error": str(exc_type.__name__) + ": " + str(exc_value)}
         self._log_access(request_string)
         return response
     
@@ -263,25 +298,29 @@ class ZandagortServer(object):
             "inner_command": command
         })
     
-    def _log(self, logtype, message):
+    def _log(self, logtype, message, raw=False):
         """General log function for file and stdout"""
-        message = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + message
+        if not raw:
+            message = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + message
         if config.SERVER_LOG_STDOUT.get(logtype, "False"):
-            print "[" + logtype.upper() + "] " + message
+            if not raw:
+                print "[" + logtype.upper() + "] " + message
+            else:
+                print message
         if logtype in self._logfiles:
             self._logfiles[logtype].write(message + "\n")
     
-    def _log_access(self, message):
+    def _log_access(self, message, raw=False):
         """Wrapper for access log"""
-        self._log("access", message)
+        self._log("access", message, raw)
     
-    def _log_error(self, message):
+    def _log_error(self, message, raw=False):
         """Wrapper for error log"""
-        self._log("error", message)
+        self._log("error", message, raw)
     
-    def _log_sys(self, message):
+    def _log_sys(self, message, raw=False):
         """Wrapper for sys log"""
-        self._log("sys", message)
+        self._log("sys", message, raw)
 
 
 def main():

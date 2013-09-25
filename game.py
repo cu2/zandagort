@@ -5,11 +5,11 @@ from world import World
 class Game(object):
     
     def __init__(self):
-        self._auth = Auth()
-        self._world = World()
+        self.auth = Auth()
+        self.world = World()
     
     def sim(self):
-        self._world.sim()
+        self.world.sim()
     
     def get_time(self):
-        return self._world.get_time()
+        return self.world.get_time()
