@@ -54,7 +54,7 @@ def _parse_qs_flat(query):
 class ZandagortRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for ZandagortHTTPServer"""
     
-    server_version = config.ZANDAGORT_SERVER_VERSION
+    server_version = config.SERVER_VERSION
     
     def do_GET(self):
         """Handle GET requests"""
@@ -170,24 +170,28 @@ class ZandagortServer(object):
     """Single threaded core server to handle Game"""
     
     def __init__(self, host, port):
-        self._host = host
-        self._port = port
+        self._address = (host, port)
         self._request_queue = Queue.Queue()
-        self._server = ZandagortHTTPServer((self._host, self._port), self._request_queue)
+        self._server = ZandagortHTTPServer(self._address, self._request_queue)
         self._server_thread = threading.Thread(target=self._server.serve_forever, name="Server Thread")
         self._server_thread.daemon = True
         self._cron = MyCron(config.CRON_BASE_DELAY)
         self._cron.add_task("sim", config.CRON_SIM_INTERVAL, self._cron_fun, InnerCommands.Sim)
         self._cron.add_task("dump", config.CRON_DUMP_INTERVAL, self._cron_fun, InnerCommands.Dump)
         self._game = Game(10000)
-        self._getcontroller = GetController(self._game._world)
-        self._postcontroller = PostController(self._game._world)
+        self._controllers = {
+            "GET": GetController(self._game._world),
+            "POST": PostController(self._game._world),
+        }
+        self._logfiles = {}
+        for key in config.SERVER_LOG_FILES:
+            self._logfiles[key] = open(config.SERVER_LOG_DIR + "/" + config.SERVER_LOG_FILES[key], "a", 1)  # line buffered
     
     def start(self):
         """Start server and cron threads"""
         self._server_thread.start()
         self._cron.start()
-        print "Listening at " + self._host + ":" + str(self._port) + "..."
+        self._log_sys("Listening at " + self._address[0] + ":" + str(self._address[1]) + "...")
     
     def serve_forever(self):
         """Main loop of core server"""
@@ -205,45 +209,52 @@ class ZandagortServer(object):
                     del request["response_queue"]  # might be unnecessary
                 self._request_queue.task_done()
         except (KeyboardInterrupt, SystemExit):
-            print ""
-            print "Shutting down..."
+            self._log_sys("Shutting down...")
         finally:
-            self._server.shutdown()
+            self._server.shutdown()  # shutdown http server
+            self._shutdown()  # shutdown zandagort server
+    
+    def _shutdown(self):
+        """Close logfiles"""
+        for key in self._logfiles:
+            self._logfiles[key].close()
     
     def _execute_inner_command(self, command):
         """Execute inner commands like Sim or Dump"""
         if command == InnerCommands.Sim:
             self._game.sim()
-            print "[" + str(command) + "] game time =", self._game.get_time()
+            self._log_sys("[" + str(command) + "] game time = " + str(self._game.get_time()))
         elif command == InnerCommands.Dump:
-            print "[" + str(command) +  "] Dumping..."
+            self._log_sys("[" + str(command) +  "] Dumping...")
             # TODO: add dump feature
-            print "[" + str(command) +  "] Dumped."
+            self._log_sys("[" + str(command) +  "] Dumped.")
         else:
-            print "[" + str(command) + "] Unknown command"
+            self._log_sys("[" + str(command) + "] Unknown command")
     
     def _execute_client_request(self, method, command, arguments):
         """Execute commands sent by clients"""
-        print "[" + method + "]", command
-        print "<argument>"
-        print json.dumps(arguments)
-        print "</argument>"
+        if method == "GET":
+            try:
+                query_string = "&".join([key+"="+arguments[key] for key in arguments])
+            except Exception:
+                query_string = "[ERROR]"
+            request_string = "[" + method + "] " + command + "?" + query_string
+        else:
+            request_string = "[" + method + "] " + command
         if method not in ["GET", "POST"]:
-            print "[ERROR] Unknown method"
+            self._log_error(request_string + " ! Unknown method")
             return {"error": "Unknown method"}
         try:
-            if method == "GET":
-                controller_function = getattr(self._getcontroller, command)
-            else:
-                controller_function = getattr(self._postcontroller, command)
+            controller_function = getattr(self._controllers[method], command)
         except AttributeError:
-            print "[ERROR] Unknown command"
+            self._log_error(request_string + " ! Unknown command")
             return {"error": "Unknown command"}
         try:
             response = controller_function(**arguments)
         except Exception:
-            print "[ERROR] Argument error"
+            self._log_error(request_string + " ! Argument error")
             return {"error": "Argument error"}
+        self._log_access(request_string)
         return response
     
     def _cron_fun(self, command):
@@ -251,6 +262,26 @@ class ZandagortServer(object):
         self._request_queue.put({
             "inner_command": command
         })
+    
+    def _log(self, logtype, message):
+        """General log function for file and stdout"""
+        message = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + message
+        if config.SERVER_LOG_STDOUT.get(logtype, "False"):
+            print "[" + logtype.upper() + "] " + message
+        if logtype in self._logfiles:
+            self._logfiles[logtype].write(message + "\n")
+    
+    def _log_access(self, message):
+        """Wrapper for access log"""
+        self._log("access", message)
+    
+    def _log_error(self, message):
+        """Wrapper for error log"""
+        self._log("error", message)
+    
+    def _log_sys(self, message):
+        """Wrapper for sys log"""
+        self._log("sys", message)
 
 
 def main():
@@ -258,16 +289,16 @@ def main():
     
     print "Launching Zandagort Server..."
     try:
-        server = ZandagortServer(config.ZANDAGORT_SERVER_HOST, config.ZANDAGORT_SERVER_PORT)
+        server = ZandagortServer(config.SERVER_HOST, config.SERVER_PORT)
     except socket_error as serr:
         if serr.errno == errno.EACCES:
-            print "[ERROR] port " + str(config.ZANDAGORT_SERVER_PORT) + " already used by some other service."
+            print "[ERROR] port " + str(config.SERVER_PORT) + " already used by some other service."
             print "Change it in config.py"
             return
         else:
             raise
     server.start()
-    server.serve_forever()
+    server.serve_forever()  # blocking call
     print "Zandagort Server shut down."
 
 
