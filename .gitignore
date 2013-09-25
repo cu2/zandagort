@@ -1,6 +1,7 @@
 ### Where I put my stuff
 _stuff/
 test_*.py
+logs/*.log
 
 ### Template from https://github.com/github/gitignore/blob/master/Python.gitignore
 *.py[cod]
