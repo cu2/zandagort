@@ -12,8 +12,11 @@ POST command:
 <command> in header, <arguments> in body
 <arguments>= JSON
 
-Response:
-JSON
+Response on error:
+{"error": "<error message>"}
+
+Response on success:
+{"response": <response_object>}
 
 Architecture:
 client (browser or command line)
@@ -25,6 +28,21 @@ zanda server:
 - main thread: read/write data (Game) through controllers
 |Queue|
 - cron thread: initiate internal commands like sim() and dump()
+
+Request-response flow:
+client
+|http request|
+ZandagortHTTPServer
+|threading|
+ZandagortRequestHandler.do_GET
+    ZandagortRequestHandler._get_response
+        |Queue|
+        ZandagortServer.server_forever
+            ZandagortServer._execute_client_request
+                <Get/Post>Controller.<some_method>
+    ZandagortRequestHandler._send_response
+|http response|
+client
 """
 
 import errno
@@ -46,6 +64,7 @@ from mycron import MyCron
 from myenum import MyEnum
 from getcontroller import GetController
 from postcontroller import PostController
+from utils import create_request_string
 
 
 class InnerCommands(MyEnum):  # pylint: disable-msg=R0903
@@ -147,9 +166,10 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", content_type + "; charset=utf-8")
         self.send_header("Content-length", str(len(response_text)))
+        # TODO: "Cache-Control: no-cache" "Expires: -1" ???
         if auth_cookie_value is not None:
             if auth_cookie_value == "":
-                self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, -3600, "/")
+                self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, -3600, "/")  # delete cookie if explicitly indicated by server
             else:
                 self._send_cookie(config.AUTH_COOKIE_NAME, auth_cookie_value, config.AUTH_COOKIE_EXPIRY, "/")
         self.end_headers()
@@ -263,14 +283,7 @@ class ZandagortServer(object):
     
     def _execute_client_request(self, method, command, arguments, auth_cookie_value):
         """Execute commands sent by clients"""
-        if method == "GET":
-            try:
-                query_string = "&".join([key+"="+value for key, value in arguments.iteritems()])
-            except Exception:
-                query_string = "[ERROR]"
-            request_string = "[" + method + "] " + command + ("?" + query_string if query_string != "" else "")
-        else:
-            request_string = "[" + method + "] " + command
+        request_string = create_request_string(method, command, arguments)
         if method not in ["GET", "POST"]:
             self._log_error(request_string + " ! Unknown method")
             return {"error": "Unknown method"}
@@ -279,10 +292,20 @@ class ZandagortServer(object):
         except AttributeError:
             self._log_error(request_string + " ! Unknown command")
             return {"error": "Unknown command"}
-        arguments_with_auth = {"auth_cookie_value": auth_cookie_value}
-        arguments_with_auth.update(arguments)
+        
+        if getattr(controller_function, "is_public", False):
+            current_user = None
+        else:
+            current_user = self._game.auth.get_user_by_auth_cookie(auth_cookie_value)
+            if current_user is None:
+                self._log_error(request_string + " ! Access denied. You have to login.")
+                return {"error": "Access denied. You have to login."}
+        # TODO: token check for post functions
+        self._controllers[method].current_user = current_user
+        self._controllers[method].auth_cookie_value = auth_cookie_value
+        
         try:
-            response = controller_function(**arguments_with_auth)
+            response = controller_function(**arguments)
         except Exception:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             self._log_error(request_string + " ! " + str(exc_type.__name__) + ": " + str(exc_value))
@@ -290,8 +313,11 @@ class ZandagortServer(object):
             for trace_line in trace_lines:
                 self._log_error("    " + trace_line.rstrip(), raw=True)
             return {"error": str(exc_type.__name__) + ": " + str(exc_value)}
+        
+        if current_user:
+            current_user.auth_cookie["expiry"] = datetime.datetime.now() + datetime.timedelta(seconds=config.AUTH_COOKIE_EXPIRY)
         self._log_access(request_string)
-        return response
+        return {"response": response, "auth_cookie_value": self._controllers[method].auth_cookie_value}
     
     def _cron_fun(self, command):
         """Simple helper function for cron thread"""
