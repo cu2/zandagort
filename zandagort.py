@@ -58,8 +58,8 @@ def _parse_qs_flat(query):
     """Return flat version of parse_qs. 'q=a,b' becomes "q":"a,b" not "q":["a","b"]"""
     deep_query_dict = parse_qs(query)
     flat_query_dict = {}
-    for key in deep_query_dict:
-        flat_query_dict[key] = deep_query_dict[key][0]
+    for key, deep_value in deep_query_dict.iteritems():
+        flat_query_dict[key] = deep_value[0]
     return flat_query_dict
 
 
@@ -210,8 +210,8 @@ class ZandagortServer(object):
             "POST": PostController(self._game),
         }
         self._logfiles = {}
-        for key in config.SERVER_LOG_FILES:
-            self._logfiles[key] = open(config.SERVER_LOG_DIR + "/" + config.SERVER_LOG_FILES[key], "a", 1)  # line buffered
+        for name, filename in config.SERVER_LOG_FILES.iteritems():
+            self._logfiles[name] = open(config.SERVER_LOG_DIR + "/" + filename, "a", 1)  # line buffered
     
     def start(self):
         """Start server and cron threads"""
@@ -245,8 +245,9 @@ class ZandagortServer(object):
     
     def _shutdown(self):
         """Close logfiles"""
-        for key in self._logfiles:
-            self._logfiles[key].close()
+        self._log_sys("Shut down.")
+        for _, logfile in self._logfiles.iteritems():
+            logfile.close()
     
     def _execute_inner_command(self, command):
         """Execute inner commands like Sim or Dump"""
@@ -264,7 +265,7 @@ class ZandagortServer(object):
         """Execute commands sent by clients"""
         if method == "GET":
             try:
-                query_string = "&".join([key+"="+arguments[key] for key in arguments])
+                query_string = "&".join([key+"="+value for key, value in arguments.iteritems()])
             except Exception:
                 query_string = "[ERROR]"
             request_string = "[" + method + "] " + command + ("?" + query_string if query_string != "" else "")
