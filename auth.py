@@ -1,8 +1,5 @@
 """
 Authorization class
-
-- stores users (with data and session)
-- provides some functions to handle users
 """
 
 import datetime
@@ -13,7 +10,12 @@ from utils import generate_random_hexstring
 
 
 class Auth(object):
-    """Authorization class that stores users"""
+    """
+    Authorization class that stores users
+    
+    - stores users (with data and session)
+    - provides some functions to handle users
+    """
     
     def __init__(self):
         self._users = []

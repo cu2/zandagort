@@ -1,3 +1,7 @@
+"""
+Handles all POST requests
+"""
+
 import datetime
 
 import config
@@ -6,10 +10,15 @@ from utils import public
 
 
 class PostController(Controller):
-    """Handles all POST requests"""
+    """
+    Handles all POST requests
+    
+    For details: see controller.py
+    """
     
     @public
     def login(self, name, password):
+        """Try to login user with name and password"""
         user = self._auth.get_user_by_name(name)
         if user is None:
             return {"error": "No user"}
@@ -23,5 +32,6 @@ class PostController(Controller):
         self.auth_cookie_value = new_auth_cookie_value
         return "Successful login"
     
-    def set_time(self, time):
+    def set_time(self, time):  # TEST
+        """Set world time. Only test method."""
         return self._world.set_time(time)

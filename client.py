@@ -18,7 +18,14 @@ import httplib
 import sys
 
 
-class ZandagortClient(object):
+class ZandagortClient(object):  # TODO: handle cookies
+    """
+    Client class for Zandagort
+    
+    - connects to Zandagort Server via HTTP
+    - sends get and post requests
+    - returns responses
+    """
     
     def __init__(self, host, port):
         self._host = host
@@ -26,6 +33,7 @@ class ZandagortClient(object):
         self._conn = httplib.HTTPConnection(host, port)
     
     def connect(self):
+        """Try to connect to server"""
         try:
             self._conn.connect()
         except Exception:
@@ -34,15 +42,18 @@ class ZandagortClient(object):
         return True
     
     def send_get(self, command, arguments=""):
+        """Send GET request to server"""
         url = command
         if arguments:
             url += "?" + arguments
         return self._send_request("GET", url)
     
     def send_post(self, command, arguments=""):
+        """Send POST request to server"""
         return self._send_request("POST", command, arguments)
     
     def _send_request(self, method, url, body=""):
+        """Actually send request to server and print response"""
         try:
             self._conn.request(method, url, body)
         except Exception:
@@ -62,14 +73,17 @@ class ZandagortClient(object):
         return True
     
     def reset(self):
+        """Reset connection"""
         self._conn.close()
         return self.connect()
     
     def shutdown(self):
+        """Close connection"""
         self._conn.close()
 
 
 def main(args):
+    """Create ZandagortClient, read user input, send requests"""
     if len(args) < 2:
         print "Usage: python client.py <host> <port>"
         return

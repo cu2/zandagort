@@ -1,17 +1,6 @@
 """
 Custom Cron (scheduler)
-
-Check tasks at every <base_delay> seconds (can be float). Runs them when they should run (every <freq> checks).
-
-Usage:
-cron = MyCron(60) # check once a minute
-cron.add_task("taskone", 5, testfun) # call testfun() every 5 minutes
-cron.remove_task("taskone") # remove task (so it won't be executed anymore)
-
-Inspiration:
-http://stackoverflow.com/questions/373335/suggestions-for-a-cron-like-scheduler-in-python/374207#374207
 """
-
 
 import datetime
 import time
@@ -19,7 +8,19 @@ import threading
 
 
 class MyCron(object):
-    """Custom cron class that contains checker thread and tasks"""
+    """
+    Custom cron (scheduler) class
+    
+    Check tasks at every <base_delay> seconds (can be float). Runs them when they should run (every <freq> checks).
+    
+    Usage:
+    cron = MyCron(60) # check once a minute
+    cron.add_task("taskone", 5, testfun) # call testfun() every 5 minutes
+    cron.remove_task("taskone") # remove task (so it won't be executed anymore)
+    
+    Inspiration:
+    http://stackoverflow.com/questions/373335/suggestions-for-a-cron-like-scheduler-in-python/374207#374207
+    """
     
     def __init__(self, base_delay=60.0):
         self._base_delay = base_delay

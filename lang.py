@@ -1,13 +1,18 @@
+"""
+Language module to handle translations
+"""
+
 from myenum import MyEnum
 from ecosystem import Species
 
 
 class Languages(MyEnum):
-    
+    """List of available languages"""
     values = ["english"]
 
 
 class Lang(object):
+    """Language class provides translations"""
     
     def __init__(self):
         self._translations = {}
@@ -18,6 +23,7 @@ class Lang(object):
         }
     
     def name(self, item, lng=Languages.english):
+        """Return translation or str() of item if there's no translation"""
         if lng not in self._translations:
             return str(item)
         if item not in self._translations[lng]:
