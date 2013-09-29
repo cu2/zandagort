@@ -69,8 +69,11 @@ from utils import create_request_string
 
 class InnerCommands(MyEnum):  # pylint: disable-msg=R0903
     """Inner commands for ZandagortServer"""
-
     values = ["Sim", "Dump"]
+
+class ErrorCodes(MyEnum):  # pylint: disable-msg=R0903
+    """Error codes for ZandagortServer"""
+    values = ["ArgumentSyntaxError"]
 
 
 def _parse_qs_flat(query):
@@ -103,7 +106,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         try:
             arguments = _parse_qs_flat(url.query)
         except Exception:
-            arguments = {"error": "Syntax error"}
+            arguments = ErrorCodes.ArgumentSyntaxError
         auth_cookie_value = self._get_auth_cookie_value()
         response = self._get_response("GET", command, arguments, auth_cookie_value)
         self._send_response(response)
@@ -118,7 +121,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
         try:
             arguments = json.loads(self.rfile.read(request_body_length))
         except Exception:
-            arguments = {"error": "Syntax error"}
+            arguments = ErrorCodes.ArgumentSyntaxError
         auth_cookie_value = self._get_auth_cookie_value()
         response = self._get_response("POST", command, arguments, auth_cookie_value)
         self._send_response(response)
@@ -283,27 +286,33 @@ class ZandagortServer(object):
     
     def _execute_client_request(self, method, command, arguments, auth_cookie_value):
         """Execute commands sent by clients"""
+        current_user = self._game.auth.get_user_by_auth_cookie(auth_cookie_value)
+        if current_user is None:
+            auth_cookie_value, current_user = self._game.auth.create_new_session()
+        self._game.auth.renew_session(auth_cookie_value)
+        
         request_string = create_request_string(method, command, arguments)
         if method not in ["GET", "POST"]:
             self._log_error(request_string + " ! Unknown method")
-            return {"error": "Unknown method"}
+            return {"error": "Unknown method", "auth_cookie_value": auth_cookie_value}
         try:
             controller_function = getattr(self._controllers[method], command)
         except AttributeError:
             self._log_error(request_string + " ! Unknown command")
-            return {"error": "Unknown command"}
+            return {"error": "Unknown command", "auth_cookie_value": auth_cookie_value}
+        if arguments == ErrorCodes.ArgumentSyntaxError:
+            self._log_error(request_string + " ! Syntax error in arguments")
+            return {"error": "Syntax error in arguments", "auth_cookie_value": auth_cookie_value}
         
-        if getattr(controller_function, "is_public", False):
-            current_user = None
-        else:
-            current_user = self._game.auth.get_user_by_auth_cookie(auth_cookie_value)
-            if current_user is None:
+        if not getattr(controller_function, "is_public", False):
+            if self._game.auth.is_guest(current_user):
                 self._log_error(request_string + " ! Access denied. You have to login.")
-                return {"error": "Access denied. You have to login."}
+                return {"error": "Access denied. You have to login.", "auth_cookie_value": auth_cookie_value}
+        
         # TODO: token check for post functions
+        
         self._controllers[method].current_user = current_user
         self._controllers[method].auth_cookie_value = auth_cookie_value
-        
         try:
             response = controller_function(**arguments)
         except Exception:
@@ -312,12 +321,10 @@ class ZandagortServer(object):
             trace_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
             for trace_line in trace_lines:
                 self._log_error("    " + trace_line.rstrip(), raw=True)
-            return {"error": str(exc_type.__name__) + ": " + str(exc_value)}
+            return {"error": str(exc_type.__name__) + ": " + str(exc_value), "auth_cookie_value": auth_cookie_value}
         
-        if current_user:
-            current_user.auth_cookie["expiry"] = datetime.datetime.now() + datetime.timedelta(seconds=config.AUTH_COOKIE_EXPIRY)
         self._log_access(request_string)
-        return {"response": response, "auth_cookie_value": self._controllers[method].auth_cookie_value}
+        return {"response": response, "auth_cookie_value": auth_cookie_value}
     
     def _cron_fun(self, command):
         """Simple helper function for cron thread"""

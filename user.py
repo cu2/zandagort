@@ -13,7 +13,3 @@ class User(object):
         self.email = email
         self.password = password
         self.admin = admin
-        self.auth_cookie = {
-            "value": "",
-            "expiry": datetime.datetime.now() + datetime.timedelta(seconds=-3600),
-        }

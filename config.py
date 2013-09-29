@@ -39,7 +39,7 @@ SERVER_LOG_STDOUT = {
 
 
 # Cookie
-AUTH_COOKIE_NAME = "zuid"
+AUTH_COOKIE_NAME = "zauth"
 AUTH_COOKIE_EXPIRY = 7 * 24 * 60 * 60
 
 # Game

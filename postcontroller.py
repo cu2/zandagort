@@ -19,19 +19,23 @@ class PostController(Controller):
     @public
     def login(self, name, password):
         """Try to login user with name and password"""
+        if not self._auth.is_guest(self.current_user):
+            return {"error": "Already logged in"}
         user = self._auth.get_user_by_name(name)
         if user is None:
             return {"error": "No user"}
         if user.password != password:
             return {"error": "Wrong password"}
-        new_auth_cookie_value = self._auth.generate_auth_cookie()
-        user.auth_cookie = {
-            "value": new_auth_cookie_value,
-            "expiry": datetime.datetime.now() + datetime.timedelta(seconds=config.AUTH_COOKIE_EXPIRY),
-        }
-        self.auth_cookie_value = new_auth_cookie_value
+        self._auth.login(user, self.auth_cookie_value)
         return "Successful login"
     
+    def logout(self):
+        """Try to logout user"""
+        if self._auth.is_guest(self.current_user):
+            return {"error": "Not logged in"}  # since logout is not public, this line should never be reached
+        self._auth.logout(self.current_user, self.auth_cookie_value)
+        return "Successful logout"
+
     def set_time(self, time):  # TEST
         """Set world time. Only test method."""
         return self._world.set_time(time)

@@ -23,7 +23,7 @@ class Controller(object):
     
     2. Test and other not client-server usecases
     For direct testing, AI development, etc. it might be even better to set user once,
-    and call methods hunders of times.
+    and call methods hundreds of times.
     """
     
     def __init__(self, game):
