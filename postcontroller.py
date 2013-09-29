@@ -2,9 +2,6 @@
 Handles all POST requests
 """
 
-import datetime
-
-import config
 from controller import Controller
 from utils import public
 

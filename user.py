@@ -2,8 +2,6 @@
 User class
 """
 
-import datetime
-
 
 class User(object):
     """Simple struct-like class for storing user data"""
