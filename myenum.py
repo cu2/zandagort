@@ -8,8 +8,7 @@ Has the following properties:
 - hashable
 - serializable
 - readable in code
-- __str__ contains enum type and name
-- __repr__ contains enum type, name and value
+- __str__ and __repr__ contains enum type and name
 
 Usage:
 class Animal(MyEnum):
@@ -35,11 +34,11 @@ class MyEnumValue(tuple):
     
     def __str__(self):
         """Return enum_type.name"""
-        return str(self[0]) + "." + str(self[2])
+        return str(self[0]) + "." + str(self[1])
     
     def __repr__(self):
-        """Return <enum_type.name: value>"""
-        return "<" + str(self[0]) + "." + str(self[2]) + ": " + str(self[1]) + ">"
+        """Return <enum_type.name>"""
+        return "<" + str(self[0]) + "." + str(self[1]) + ">"
 
 
 class MyEnumMetaclass(type):
@@ -49,7 +48,7 @@ class MyEnumMetaclass(type):
         """Return MyEnumValue"""
         if name not in mcs.values:
             raise ValueError(name + " is not " + mcs.__name__)
-        return MyEnumValue((mcs.__name__, mcs.values.index(name), name))
+        return MyEnumValue((mcs.__name__, name))
     
     def contains(mcs, value):
         """Check if value is MyEnumValue and comes from this subclass of MyEnum"""
