@@ -12,6 +12,10 @@ This is/will be/might become one day a simplified version of the original game (
 
 This is 100% a hobby project, with no intent to monetize and/or support it. I just feel distant enough from the original project to utilize all the experience gathered during that earlier period and have something fun for the long cold winter evenings coming.
 
+# Architecture
+
+![Zandagort Architecture](static/img/zandagort_architecture.png)
+
 # Dependencies
 
 - Python 2.7 (note: for Python 3 it needs some rewrite)
