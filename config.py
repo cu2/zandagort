@@ -21,7 +21,8 @@ from utils import multi_config
 
 
 # Server
-SERVER_HOST = "localhost"
+#SERVER_HOST = "localhost"
+SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 3492
 SERVER_VERSION = "Zandagort/2.0"
 

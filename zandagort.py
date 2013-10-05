@@ -148,6 +148,7 @@ class ZandagortRequestHandler(BaseHTTPRequestHandler):
             "command": command,
             "arguments": arguments,
             "auth_cookie_value": auth_cookie_value,
+            "client_ip": self.client_address[0],
         })
         response = my_queue.get()
         my_queue.task_done()
@@ -256,7 +257,8 @@ class ZandagortServer(object):
                     response = self._execute_client_request(request["method"],
                                                             request["command"],
                                                             request["arguments"],
-                                                            request["auth_cookie_value"])
+                                                            request["auth_cookie_value"],
+                                                            request["client_ip"])
                     request["response_queue"].put(response)
                     del request["response_queue"]  # might be unnecessary
                 self._request_queue.task_done()
@@ -284,14 +286,14 @@ class ZandagortServer(object):
         else:
             self._log_sys("[" + str(command) + "] Unknown command")
     
-    def _execute_client_request(self, method, command, arguments, auth_cookie_value):
+    def _execute_client_request(self, method, command, arguments, auth_cookie_value, client_ip):
         """Execute commands sent by clients"""
         current_user = self._game.auth.get_user_by_auth_cookie(auth_cookie_value)
         if current_user is None:
             auth_cookie_value, current_user = self._game.auth.create_new_session()
         self._game.auth.renew_session(auth_cookie_value)
         
-        request_string = create_request_string(method, command, arguments)
+        request_string = create_request_string(method, command, arguments, client_ip)
         if method not in ["GET", "POST"]:
             self._log_error(request_string + " ! Unknown method")
             return {"error": "Unknown method", "auth_cookie_value": auth_cookie_value}

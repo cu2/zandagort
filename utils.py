@@ -25,14 +25,14 @@ def public(func):
     return func
 
 
-def create_request_string(method, command, arguments):
+def create_request_string(method, command, arguments, client_ip):
     """Return request_string for client request"""
     if method == "GET":
         try:
             query_string = "&".join([key+"="+value for key, value in arguments.iteritems()])
         except Exception:
             query_string = "[ERROR]"
-        request_string = "[" + method + "] " + command + ("?" + query_string if query_string != "" else "")
+        request_string = "[" + client_ip + " " + method + "] " + command + ("?" + query_string if query_string != "" else "")
     else:
-        request_string = "[" + method + "] " + command
+        request_string = "[" + client_ip + " " + method + "] " + command
     return request_string
