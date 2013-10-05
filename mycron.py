@@ -52,11 +52,11 @@ class MyCron(object):
         """Main loop of checker thread"""
         while True:
             self._last_check = datetime.datetime.now()
-            for name in self._tasks:
-                self._tasks[name]["counter"] += 1
-                if self._tasks[name]["counter"] >= self._tasks[name]["freq"]:
-                    self._tasks[name]["counter"] = 0
-                    self._tasks[name]["task"](*self._tasks[name]["args"], **self._tasks[name]["kwargs"])
+            for name, task in self._tasks.iteritems():
+                task["counter"] += 1
+                if task["counter"] >= task["freq"]:
+                    task["counter"] = 0
+                    task["task"](*task["args"], **task["kwargs"])
             now = datetime.datetime.now()
             if now >= self._last_check:
                 seconds_since_last_check = 1.0 * (now - self._last_check).microseconds / 1000000
